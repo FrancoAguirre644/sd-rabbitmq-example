@@ -51,4 +51,13 @@ export class SensorsService {
   getSensors(): Sensor[] {
     return this.sensors;
   }
+
+  generateTemperature(): number {
+    const min = 20;
+    const max = 40;
+
+    return Number(
+      (Math.random() * (max - min) + min).toFixed(1),
+    );
+  }
 }
