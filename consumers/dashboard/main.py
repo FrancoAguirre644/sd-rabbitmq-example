@@ -2,11 +2,18 @@ import asyncio
 import json
 
 import aio_pika
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 
 
 RABBITMQ_URL = "amqp://sensores:sensores@localhost:5672/"
 EXCHANGE_NAME = "sensor.exchange"
 QUEUE_NAME = "dashboard.queue"
+
+
+app = FastAPI()
+
+clients: set[asyncio.Queue] = set()
 
 
 async def consume_messages():
@@ -38,10 +45,35 @@ async def consume_messages():
 
                 print("Received:", measurement)
 
+                for client_queue in clients:
+                    await client_queue.put(measurement)
 
-async def main():
-    await consume_messages()
+
+async def event_stream(client_queue: asyncio.Queue):
+    while True:
+        measurement = await client_queue.get()
+
+        yield f"data: {json.dumps(measurement)}\n\n"
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+@app.get("/events")
+async def events():
+    client_queue = asyncio.Queue()
+    clients.add(client_queue)
+
+    async def stream():
+        try:
+            async for event in event_stream(client_queue):
+                yield event
+        finally:
+            clients.discard(client_queue)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+    )
+
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(consume_messages())
