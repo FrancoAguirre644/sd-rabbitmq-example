@@ -60,4 +60,13 @@ export class SensorsService {
       (Math.random() * (max - min) + min).toFixed(1),
     );
   }
+
+  createMeasurement(sensor: Sensor): SensorMeasurement {
+    return {
+      sensor: sensor.id,
+      temperatura: this.generateTemperature(),
+      x: sensor.x,
+      y: sensor.y,
+    };
+  }
 }
